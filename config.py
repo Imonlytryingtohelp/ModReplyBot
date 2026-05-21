@@ -2,14 +2,14 @@ import os
 import praw
 
 class Config:
-    CLIENT_ID = os.environ.get('REDDIT_CLIENT_ID')
-    CLIENT_SECRET = os.environ.get('REDDIT_CLIENT_SECRET')
-    USERNAME = os.environ.get('REDDIT_USERNAME')
-    PASSWORD = os.environ.get('REDDIT_PASSWORD')
-    USER_AGENT = os.environ.get('REDDIT_USER_AGENT', 'modreplybot by /u/your_username')
-    SUBREDDIT = os.environ.get('REDDIT_SUBREDDIT')
-    WIKI_PAGE = os.environ.get('REDDIT_WIKI_PAGE', 'modreplybot-config')
-    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'Default')
+    CLIENT_ID = os.environ.get('MRB_REDDIT_CLIENT_ID')
+    CLIENT_SECRET = os.environ.get('MRB_REDDIT_CLIENT_SECRET')
+    USERNAME = os.environ.get('MRB_REDDIT_USERNAME')
+    PASSWORD = os.environ.get('MRB_REDDIT_PASSWORD')
+    USER_AGENT = os.environ.get('MRB_REDDIT_USER_AGENT', 'modreplybot by /u/your_username')
+    SUBREDDIT = os.environ.get('MRB_REDDIT_SUBREDDIT')
+    WIKI_PAGE = os.environ.get('MRB_REDDIT_WIKI_PAGE', 'modreplybot-config')
+    LOG_LEVEL = os.environ.get('MRB_LOG_LEVEL', 'Default')
 
     @staticmethod
     def validate():

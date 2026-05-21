@@ -1,6 +1,23 @@
 
 # Changelog
 
+## [2.3.0] - 2026-05-21
+
+### ⚠️ BREAKING CHANGES
+- **Docker Environment Variables Prefix Change:**
+  - All Docker environment variables now require the `MRB_` prefix for security isolation.
+  - Old variable names (e.g., `REDDIT_CLIENT_ID`) are **no longer supported**.
+  - Migration required: Update your `.env` file with the new prefixed names:
+    - `REDDIT_CLIENT_ID` → `MRB_REDDIT_CLIENT_ID`
+    - `REDDIT_CLIENT_SECRET` → `MRB_REDDIT_CLIENT_SECRET`
+    - `REDDIT_USERNAME` → `MRB_REDDIT_USERNAME`
+    - `REDDIT_PASSWORD` → `MRB_REDDIT_PASSWORD`
+    - `REDDIT_USER_AGENT` → `MRB_REDDIT_USER_AGENT`
+    - `REDDIT_SUBREDDIT` → `MRB_REDDIT_SUBREDDIT`
+    - `REDDIT_WIKI_PAGE` → `MRB_REDDIT_WIKI_PAGE`
+    - `LOG_LEVEL` → `MRB_LOG_LEVEL`
+  - No fallback for old variable names. Bot will fail to start if new names are not set.
+
 ## [2.2.3] - 2026-04-04
 
 ### Fixed

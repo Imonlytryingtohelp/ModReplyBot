@@ -1,6 +1,6 @@
 services:
   modreplybot:
-    image: slfhstd.uk/slfhstd/modreplybot:dev
+    image: ghcr.io/imonlytryingtohelp/modreplybot:dev
     container_name: modreplybot
     env_file:
       - .env

@@ -3,7 +3,7 @@ import praw
 from config import get_reddit, Config
 from update_checker import start_update_checker
 
-BOT_VERSION = "2.2.3"  # Change this for new releases
+BOT_VERSION = "2.3.0"  # Change this for new releases
 BOT_NAME = "ModReplyBot"  # Change this if bot name changes
 
 import time
