@@ -1,0 +1,8 @@
+.env
+config/*
+tests.py
+message.md
+docker/
+tmp.subredditconfig.yaml
+DB/chat_wiki_requests.txt
+DB/commented_posts.txt

@@ -1,0 +1,10 @@
+services:
+  modreplybot:
+    image: slfhstd.uk/slfhstd/modreplybot:dev
+    container_name: modreplybot
+    env_file:
+      - .env
+    volumes:
+      - ./docker/config:/app/config
+      - ./docker/DB:/app/DB
+    restart: unless-stopped
