@@ -66,9 +66,21 @@ post_tags:
   - `disabled`: Bot will not act on this tag.
 - **flair_id**: Optional. Set post flair by ID.
 
+## Filtered Post Comments
+
+Add an optional `filtered_post_comment` to the wiki configuration to post a moderator-distinguished comment when a filtered or removed post appears in the mod queue:
+
+```yaml
+filtered_post_comment: |
+  This post is awaiting moderator review.
+```
+
+The comment is posted once per post and is not sticky. Leave the setting out, or set it to an empty value, to disable this behavior. The `{author}` and `{{author}}` placeholders are supported.
+
 ## Chat-Based Config Reload
 - To reload the wiki config, send a chat message containing `reload-config` to the bot account from a moderator account.
 - The bot will reply to the chat message indicating whether the config is valid or not.
+- To delete a filtered-post comment, send `delete-fc <post-id>` from a moderator account. The bot deletes only its matching configured filtered-post comment and removes the post from its filtered-comment tracking file.
 - Chat message IDs are tracked in `/DB/chat_wiki_requests.txt` to prevent duplicate reloads after restarts.
 
 ## Additional Notes

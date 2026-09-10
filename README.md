@@ -42,6 +42,9 @@ post_tags:
     status: enabled
     flair_id: 12345678-aaaa-bbbb-cccc-1234567890ab
 
+filtered_post_comment: |
+  This post is awaiting moderator review.
+
 # New: Ignore tags
 ignore_tags:
   - tag: Off-Topic
@@ -51,6 +54,7 @@ ignore_tags:
 - Triggers: Bot responds to mod comments and mod reports containing `!trigger` (e.g., `!help`) with the configured comment and actions.
 
 - post_tags: Bot posts the comment automatically on new posts with matching tags in the title and can set flair.
+- filtered_post_comment: Optional comment posted on filtered or removed posts found in the mod queue. The comment is distinguished by the bot as a moderator comment and is posted once per post.
 - ignore_tags: Bot will ignore (not comment on) posts with these tags in the title. Tags are case-insensitive and match `[Tag]` in the post title or flair.
 - Status options: `enabled`, `log-only`, `disabled`.
 - Optional actions: `flair_id`, `stickied`, `lock_post`, `lock_comment`.
@@ -107,6 +111,7 @@ python modreplybot.py
 ## Chat-Based Config Reload
 - To reload the wiki config, send a chat message containing `reload-config` to the bot account from a moderator account.
 - The bot will reply to the chat message indicating whether the config is valid or not.
+- To delete a filtered-post comment, send `delete-fc <post-id>` from a moderator account. The bot will delete its matching filtered-post comment and allow it to be posted again if the post is detected in the mod queue later.
 - Chat message IDs are tracked in `/DB/chat_wiki_requests.txt` to prevent duplicate reloads after restarts.
 
 ## Troubleshooting

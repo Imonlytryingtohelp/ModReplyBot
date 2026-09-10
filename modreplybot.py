@@ -26,10 +26,14 @@ class ModReplyBot:
                     # Save processed ID to file
                     with open(chat_requests_file, 'a', encoding='utf-8') as f:
                         f.write(message.id + '\n')
-                    if hasattr(message, 'body') and 'reload-config' in message.body.lower():
-                        # Check if sender is a moderator
+                    if hasattr(message, 'body'):
+                        command_parts = message.body.strip().split()
+                        command = command_parts[0].lower() if command_parts else ''
                         author = getattr(message, 'author', None)
-                        if author and author in self.subreddit.moderator():
+                        if not author or author not in self.subreddit.moderator():
+                            continue
+
+                        if command == 'reload-config' or 'reload-config' in message.body.lower():
                             print(f"[CHAT WATCH] Moderator '{author}' requested config reload.")
                             result = self.fetch_yaml_config()
                             if result:
@@ -38,11 +42,19 @@ class ModReplyBot:
                             else:
                                 print("[CHAT WATCH] Wiki config reload failed.")
                                 reply_text = "Config reload failed. Config is invalid."
-                            try:
-                                message.reply(reply_text)
-                                print(f"[CHAT WATCH] Replied to chat message {message.id}.")
-                            except Exception as e:
-                                print(f"[CHAT WATCH] Error replying to chat message {message.id}: {e}")
+                        elif command == 'delete-fc':
+                            if len(command_parts) != 2:
+                                reply_text = "Usage: delete-fc <post-id>"
+                            else:
+                                reply_text = self.delete_filtered_comment(command_parts[1])
+                        else:
+                            continue
+
+                        try:
+                            message.reply(reply_text)
+                            print(f"[CHAT WATCH] Replied to chat message {message.id}.")
+                        except Exception as e:
+                            print(f"[CHAT WATCH] Error replying to chat message {message.id}: {e}")
             except Exception as e:
                 print(f"Chat message watcher error: {e}")
             import time
@@ -82,8 +94,11 @@ class ModReplyBot:
         self.tag_statuses = {}
         self.tag_flair_ids = {}
         self.tag_required_text = {}
+        self.filtered_post_comment = ''
         self.commented_posts = set()
         self.commented_posts_file = os.path.join(os.path.dirname(__file__), 'DB', 'commented_posts.txt')
+        self.filtered_commented_posts = set()
+        self.filtered_commented_posts_file = os.path.join(os.path.dirname(__file__), 'DB', 'filtered_commented_posts.txt')
         self.tagged_commented_posts_file = os.path.join(os.path.dirname(__file__), 'DB', 'tagged_commented_posts.txt')
         self.tagged_commented_posts = set()
         self._wiki_config_cache = None
@@ -91,6 +106,7 @@ class ModReplyBot:
         self._wiki_config_cache_ttl = 300  # seconds (5 minutes)
         self.ensure_config_file()
         self.load_commented_posts()
+        self.load_filtered_commented_posts()
         self.log_level = Config.LOG_LEVEL
 
     def log(self, message, debug_only=False):
@@ -213,6 +229,11 @@ class ModReplyBot:
         self.tag_statuses = {}
         self.tag_flair_ids = {}
         self.tag_required_text = {}
+        self.filtered_post_comment = config.get('filtered_post_comment', '') or ''
+        if not isinstance(self.filtered_post_comment, str):
+            self.log("Wiki config 'filtered_post_comment' must be a string.")
+            return False
+        self.filtered_post_comment = self.filtered_post_comment.strip()
         for entry in config.get('triggers', []):
             self.triggers.append(entry.get('trigger', '').strip())
             self.comments.append(entry.get('comment', '').strip())
@@ -273,6 +294,61 @@ class ModReplyBot:
         self.commented_posts.add(post_id)
         with open(self.commented_posts_file, 'a', encoding='utf-8') as f:
             f.write(post_id + '\n')
+
+    def load_filtered_commented_posts(self):
+        try:
+            with open(self.filtered_commented_posts_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    self.filtered_commented_posts.add(line.strip())
+        except FileNotFoundError:
+            pass
+
+    def comment_on_filtered_post(self, submission):
+        if not self.filtered_post_comment or submission.id in self.filtered_commented_posts:
+            return
+
+        try:
+            comment_text = self.filtered_post_comment.replace(
+                '{{author}}', submission.author.name if submission.author else 'unknown'
+            ).replace(
+                '{author}', submission.author.name if submission.author else 'unknown'
+            )
+            comment = submission.reply(comment_text)
+            comment.mod.distinguish()
+            self.filtered_commented_posts.add(submission.id)
+            with open(self.filtered_commented_posts_file, 'a', encoding='utf-8') as f:
+                f.write(submission.id + '\n')
+            print(f"Posted distinguished filtered-post comment on: {submission.id}")
+        except Exception as e:
+            print(f"Error commenting on filtered post {submission.id}: {e}")
+
+    def delete_filtered_comment(self, post_id):
+        post_id = post_id.removeprefix('t3_')
+        try:
+            submission = self.reddit.submission(id=post_id)
+            submission.comments.replace_more(limit=0)
+            bot_name = self.reddit.user.me().name
+            expected_text = self.filtered_post_comment.replace(
+                '{{author}}', submission.author.name if submission.author else 'unknown'
+            ).replace(
+                '{author}', submission.author.name if submission.author else 'unknown'
+            )
+            for comment in submission.comments.list():
+                comment_author = getattr(comment.author, 'name', None)
+                if (comment_author == bot_name and
+                    getattr(comment, 'distinguished', None) == 'moderator' and
+                    comment.body == expected_text):
+                    comment.delete()
+                    self.filtered_commented_posts.discard(post_id)
+                    with open(self.filtered_commented_posts_file, 'w', encoding='utf-8') as f:
+                        for saved_id in sorted(self.filtered_commented_posts):
+                            f.write(saved_id + '\n')
+                    print(f"[CHAT WATCH] Deleted filtered comment from post {post_id}.")
+                    return f"Filtered comment deleted from post {post_id}."
+            return f"No matching filtered comment found on post {post_id}."
+        except Exception as e:
+            print(f"[CHAT WATCH] Error deleting filtered comment from post {post_id}: {e}")
+            return f"Failed to delete filtered comment from post {post_id}: {e}"
 
     def run(self):
         import threading
@@ -516,8 +592,9 @@ class ModReplyBot:
                             is_filtered = True
                         if getattr(submission, 'removed', None):
                             is_filtered = True
-                        if is_filtered:
+                        if is_filtered and hasattr(submission, 'title'):
                             print(f"[MODQUEUE WATCH] Post {submission.id} is filtered/removed.")
+                            self.comment_on_filtered_post(submission)
                         # Comment only on filtered/removed posts with matching tags
                         if matched_tag and is_filtered and (submission.id not in self.commented_posts):
                             status = self.tag_statuses.get(matched_tag, 'enabled')
