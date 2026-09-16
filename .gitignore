@@ -7,3 +7,4 @@ tmp.subredditconfig.yaml
 DB/chat_wiki_requests.txt
 DB/commented_posts.txt
 DB/bot_comments.txt
+DB/moderator_interactions.jsonl

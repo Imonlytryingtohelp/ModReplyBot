@@ -115,6 +115,11 @@ python modreplybot.py
 - To delete all comments made by the bot on a post, send `delete-all <post-id>` from a moderator account. The bot scans the full comment tree and reports how many comments were deleted.
 - Chat message IDs are tracked in `/DB/chat_wiki_requests.txt` to prevent duplicate reloads after restarts.
 
+### Moderator Interaction Log
+- Moderator chat commands, trigger comments, and mod reports are recorded in `/DB/moderator_interactions.jsonl`.
+- Each line is a JSON object containing a UTC timestamp, moderator username, interaction type, Reddit IDs, trigger or command, status, and result or error details where available.
+- The file is append-only and persisted with the Docker `DB` volume so an external webserver can read or tail it.
+
 ## Troubleshooting
 - Ensure your Reddit credentials are correct and have moderator permissions.
 - The bot must be able to read the wiki page and approve posts.

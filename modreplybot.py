@@ -1,9 +1,10 @@
 import os
+import json
 import praw
 from config import get_reddit, Config
 from update_checker import start_update_checker
 
-BOT_VERSION = "2.3.1"  # Change this for new releases
+BOT_VERSION = "2.4.0"  # Change this for new releases
 BOT_NAME = "ModReplyBot"  # Change this if bot name changes
 
 import time
@@ -34,6 +35,10 @@ class ModReplyBot:
                             continue
 
                         if command == 'reload-config' or 'reload-config' in message.body.lower():
+                            self.log_moderator_interaction(
+                                'chat_command', getattr(author, 'name', str(author)),
+                                message_id=message.id, command=command, status='received'
+                            )
                             print(f"[CHAT WATCH] Moderator '{author}' requested config reload.")
                             result = self.fetch_yaml_config()
                             if result:
@@ -43,11 +48,21 @@ class ModReplyBot:
                                 print("[CHAT WATCH] Wiki config reload failed.")
                                 reply_text = "Config reload failed. Config is invalid."
                         elif command == 'delete-fc':
+                            self.log_moderator_interaction(
+                                'chat_command', getattr(author, 'name', str(author)),
+                                message_id=message.id, command=command, post_id=command_parts[1] if len(command_parts) == 2 else None,
+                                status='received'
+                            )
                             if len(command_parts) != 2:
                                 reply_text = "Usage: delete-fc <post-id>"
                             else:
                                 reply_text = self.delete_filtered_comment(command_parts[1])
                         elif command == 'delete-all':
+                            self.log_moderator_interaction(
+                                'chat_command', getattr(author, 'name', str(author)),
+                                message_id=message.id, command=command, post_id=command_parts[1] if len(command_parts) == 2 else None,
+                                status='received'
+                            )
                             if len(command_parts) != 2:
                                 reply_text = "Usage: delete-all <post-id>"
                             else:
@@ -57,6 +72,10 @@ class ModReplyBot:
 
                         try:
                             message.reply(reply_text)
+                            self.log_moderator_interaction(
+                                'chat_command', getattr(author, 'name', str(author)),
+                                message_id=message.id, command=command, status='completed', result=reply_text
+                            )
                             print(f"[CHAT WATCH] Replied to chat message {message.id}.")
                         except Exception as e:
                             print(f"[CHAT WATCH] Error replying to chat message {message.id}: {e}")
@@ -109,6 +128,8 @@ class ModReplyBot:
         self.bot_comments = set()
         self.bot_comments_file = os.path.join(os.path.dirname(__file__), 'DB', 'bot_comments.txt')
         self.bot_comments_lock = threading.RLock()
+        self.moderator_interactions_file = os.path.join(os.path.dirname(__file__), 'DB', 'moderator_interactions.jsonl')
+        self.moderator_interactions_lock = threading.Lock()
         self.tagged_commented_posts_file = os.path.join(os.path.dirname(__file__), 'DB', 'tagged_commented_posts.txt')
         self.tagged_commented_posts = set()
         self._wiki_config_cache = None
@@ -123,6 +144,20 @@ class ModReplyBot:
     def log(self, message, debug_only=False):
         if self.log_level == 'Debug' or (self.log_level == 'Default' and not debug_only):
             print(message)
+
+    def log_moderator_interaction(self, interaction_type, moderator, **details):
+        record = {
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+            'moderator': moderator,
+            'type': interaction_type,
+        }
+        record.update({key: value for key, value in details.items() if value is not None})
+        try:
+            with self.moderator_interactions_lock:
+                with open(self.moderator_interactions_file, 'a', encoding='utf-8') as f:
+                    f.write(json.dumps(record, ensure_ascii=True) + '\n')
+        except Exception as e:
+            print(f"[AUDIT LOG] Error writing moderator interaction: {e}")
 
     def check_required_text_and_prepend_message(self, submission, comment_text, required_text_list, matched_tag=None):
         """Check if post contains required text strings, prepend message if not."""
@@ -740,6 +775,11 @@ class ModReplyBot:
         if hasattr(submission, 'mod_reports') and submission.mod_reports:
             for report_tuple in submission.mod_reports:
                 report_reason = report_tuple[0].strip().lower()
+                report_moderator = getattr(report_tuple[1], 'name', report_tuple[1]) if len(report_tuple) > 1 else 'unknown'
+                self.log_moderator_interaction(
+                    'mod_report', report_moderator, submission_id=submission.id,
+                    post_id=submission.id, trigger=report_reason, status='received'
+                )
                 for idx, trigger in enumerate(self.triggers):
                     expected = f"!{trigger.lower()}"
                     if expected in report_reason:
@@ -764,7 +804,17 @@ class ModReplyBot:
                 comment_text = matched_comment.replace("{{author}}", submission.author.name if submission.author else "unknown") + "\n\n" + footer
                 self.approve_and_comment(submission, comment_text, matched_status, matched_idx)
                 self.triggered_posts.add(trigger_key)
+                self.log_moderator_interaction(
+                    'mod_report', report_moderator, submission_id=submission.id,
+                    post_id=submission.id, trigger=matched_trigger, status='completed',
+                    result='actioned'
+                )
             except Exception as e:
+                self.log_moderator_interaction(
+                    'mod_report', report_moderator, submission_id=submission.id,
+                    post_id=submission.id, trigger=matched_trigger, status='failed',
+                    error=str(e)
+                )
                 print(f"Error commenting on mod report: {e}")
         else:
             print(f"No matching trigger found in mod report for post {submission.id}")
@@ -776,8 +826,18 @@ class ModReplyBot:
             words = [w.strip() for w in comment_body.split()]
             # Only respond if author is a moderator
             if expected in words and comment.author and comment.author in self.subreddit.moderator():
+                moderator = getattr(comment.author, 'name', str(comment.author))
+                self.log_moderator_interaction(
+                    'moderator_comment', moderator, comment_id=comment.id,
+                    post_id=comment.submission.id, trigger=trigger, status='received'
+                )
                 status = self.statuses[idx] if idx < len(self.statuses) else 'enabled'
                 if status == 'disabled':
+                    self.log_moderator_interaction(
+                        'moderator_comment', moderator, comment_id=comment.id,
+                        post_id=comment.submission.id, trigger=trigger, status='ignored',
+                        result='trigger_disabled'
+                    )
                     print(f"Trigger '{trigger}' is disabled. Skipping.")
                     continue
                 try:
@@ -788,6 +848,11 @@ class ModReplyBot:
                 submission = comment.submission
                 self.fetch_yaml_config()
                 self.approve_and_comment(submission, self.comments[idx], status, idx)
+                self.log_moderator_interaction(
+                    'moderator_comment', moderator, comment_id=comment.id,
+                    post_id=submission.id, trigger=trigger, status='completed',
+                    result='actioned'
+                )
                 break
 
     def approve_and_comment(self, submission, comment_text, status='enabled', trigger_idx=None):

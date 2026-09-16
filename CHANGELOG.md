@@ -11,6 +11,9 @@
 - **Delete All Bot Comments Chat Command:**
   - Added the moderator-only `delete-all <post-id>` chat command.
   - Deletes every comment authored by the bot on the specified post, including comments not in the tracking database.
+- **Moderator Interaction Audit Log:**
+  - Records moderator chat commands, trigger comments, and mod reports in `/DB/moderator_interactions.jsonl`.
+  - Stores structured JSONL records with timestamps, moderator names, IDs, outcomes, and errors where available.
 
 ## [2.3.1]
 
