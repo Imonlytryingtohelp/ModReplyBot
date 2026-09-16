@@ -47,6 +47,11 @@ class ModReplyBot:
                                 reply_text = "Usage: delete-fc <post-id>"
                             else:
                                 reply_text = self.delete_filtered_comment(command_parts[1])
+                        elif command == 'delete-all':
+                            if len(command_parts) != 2:
+                                reply_text = "Usage: delete-all <post-id>"
+                            else:
+                                reply_text = self.delete_all_bot_comments(command_parts[1])
                         else:
                             continue
 
@@ -417,6 +422,38 @@ class ModReplyBot:
         except Exception as e:
             print(f"[CHAT WATCH] Error deleting filtered comment from post {post_id}: {e}")
             return f"Failed to delete filtered comment from post {post_id}: {e}"
+
+    def delete_all_bot_comments(self, post_id):
+        post_id = post_id.removeprefix('t3_')
+        deleted_count = 0
+        failed_count = 0
+        deleted_comment_ids = []
+        try:
+            submission = self.reddit.submission(id=post_id)
+            submission.comments.replace_more(limit=0)
+            bot_name = self.reddit.user.me().name
+            for comment in submission.comments.list():
+                comment_author = getattr(getattr(comment, 'author', None), 'name', None)
+                if comment_author != bot_name:
+                    continue
+                try:
+                    comment.delete()
+                    deleted_count += 1
+                    deleted_comment_ids.append(comment.id)
+                    print(f"[CHAT WATCH] Deleted bot comment {comment.id} from post {post_id}.")
+                except Exception as e:
+                    failed_count += 1
+                    print(f"[CHAT WATCH] Error deleting bot comment {comment.id} from post {post_id}: {e}")
+
+            for comment_id in deleted_comment_ids:
+                self.remove_bot_comment(comment_id)
+
+            if failed_count:
+                return f"Deleted {deleted_count} bot comment(s) from post {post_id}; {failed_count} failed."
+            return f"Deleted {deleted_count} bot comment(s) from post {post_id}."
+        except Exception as e:
+            print(f"[CHAT WATCH] Error deleting bot comments from post {post_id}: {e}")
+            return f"Failed to delete bot comments from post {post_id}: {e}"
 
     def run(self):
         import threading

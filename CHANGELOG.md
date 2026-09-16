@@ -8,6 +8,9 @@
   - Tracks bot-created comment IDs in the persistent database.
   - Checks tracked comments periodically and deletes them when Reddit reports they were removed by a moderator.
   - Leaves comments with other or unknown removal causes untouched.
+- **Delete All Bot Comments Chat Command:**
+  - Added the moderator-only `delete-all <post-id>` chat command.
+  - Deletes every comment authored by the bot on the specified post, including comments not in the tracking database.
 
 ## [2.3.1]
 
