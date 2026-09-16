@@ -402,6 +402,12 @@ class ModReplyBot:
                     continue
                 comment.delete()
                 self.remove_bot_comment(comment_id)
+                removed_by = getattr(comment, 'banned_by', None)
+                moderator = getattr(removed_by, 'name', removed_by) or 'unknown'
+                self.log_moderator_interaction(
+                    'comment_removed_by_moderator', str(moderator),
+                    comment_id=comment_id, status='completed', action='deleted_by_bot'
+                )
                 print(f"[COMMENT WATCH] Deleted moderator-removed bot comment: {comment_id}")
             except Exception as e:
                 print(f"[COMMENT WATCH] Error checking bot comment {comment_id}: {e}")
