@@ -1,6 +1,6 @@
 services:
   modreplybot:
-    image: ghcr.io/imonlytryingtohelp/modreplybot:dev
+    image: ghcr.io/imonlytryingtohelp/modreplybot:latest
     container_name: modreplybot
     env_file:
       - .env
@@ -9,7 +9,7 @@ services:
       - ./docker/DB:/app/DB
     restart: unless-stopped
   web:
-    image: ghcr.io/imonlytryingtohelp/modreplybot:dev
+    image: ghcr.io/imonlytryingtohelp/modreplybot:latest
     command: ["python", "web/server.py"]
     container_name: modreplybot-web
     ports:
