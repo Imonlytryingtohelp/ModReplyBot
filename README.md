@@ -120,6 +120,12 @@ python modreplybot.py
 - Each line is a JSON object containing a UTC timestamp, moderator username, interaction type, Reddit IDs, trigger or command, status, and result or error details where available.
 - The file is append-only and persisted with the Docker `DB` volume so an external webserver can read or tail it.
 
+### Moderator Activity Dashboard
+- The dependency-free dashboard is in `/web` and reads the interaction log through `/api/interactions`.
+- Run it with `python web/server.py`; it serves the page on port `8080` by default.
+- For Docker, run a separate service from the same image with `python web/server.py`, mount the same `DB` volume, and expose the port through your preferred reverse proxy or host configuration.
+- Set `MRB_WEB_PORT` or `MRB_INTERACTIONS_LOG` when the defaults need to be changed.
+
 ## Troubleshooting
 - Ensure your Reddit credentials are correct and have moderator permissions.
 - The bot must be able to read the wiki page and approve posts.

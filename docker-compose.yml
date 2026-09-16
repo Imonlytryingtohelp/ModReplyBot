@@ -8,3 +8,12 @@ services:
       - ./docker/config:/app/config
       - ./docker/DB:/app/DB
     restart: unless-stopped
+  web:
+    image: ghcr.io/imonlytryingtohelp/modreplybot:dev
+    command: ["python", "web/server.py"]
+    container_name: modreplybot-web
+    ports:
+      - "5289:8080"
+    volumes:
+      - ./docker/DB:/app/DB
+    restart: unless-stopped

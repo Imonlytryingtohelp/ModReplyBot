@@ -6,5 +6,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY config.py .
 COPY modreplybot.py .
 COPY update_checker.py .
+COPY web web
 ENV PYTHONUNBUFFERED=1
 CMD ["python", "modreplybot.py"]
