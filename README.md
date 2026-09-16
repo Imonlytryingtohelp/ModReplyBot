@@ -111,7 +111,7 @@ python modreplybot.py
 ## Chat-Based Config Reload
 - To reload the wiki config, send a chat message containing `reload-config` to the bot account from a moderator account.
 - The bot will reply to the chat message indicating whether the config is valid or not.
-- To delete a filtered-post comment, send `delete-fc <post-id>` from a moderator account. The bot will delete its matching filtered-post comment and allow it to be posted again if the post is detected in the mod queue later.
+- To delete a filtered-post comment, send `delete-fc <post-id>` from a moderator account. The bot will delete its matching filtered-post comment while keeping the post in its filtered-comment tracking file.
 - Chat message IDs are tracked in `/DB/chat_wiki_requests.txt` to prevent duplicate reloads after restarts.
 
 ## Troubleshooting

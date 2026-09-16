@@ -1,7 +1,27 @@
 
 # Changelog
 
-## [2.3.0] - 2026-05-21
+## [2.4.0]
+
+### Added
+- **Moderator-Removed Comment Cleanup:**
+  - Tracks bot-created comment IDs in the persistent database.
+  - Checks tracked comments periodically and deletes them when Reddit reports they were removed by a moderator.
+  - Leaves comments with other or unknown removal causes untouched.
+
+## [2.3.1]
+
+### Added
+- **Filtered Posts Comment:**
+  - Added the configurable `filtered_post_comment` wiki setting.
+  - Posts a moderator-distinguished comment when a filtered or removed post appears in the mod queue.
+  - Tracks filtered-post comments so each post is handled once.
+- **Filtered Comment Deletion Chat Command:**
+  - Added the moderator-only `delete-fc <post-id>` chat command.
+  - Deletes the bot's matching moderator-distinguished filtered-post comment.
+  - Keeps the post in filtered-comment tracking after deletion to prevent additional filtered comments.
+
+## [2.3.0]
 
 ### ⚠️ BREAKING CHANGES
 - **Docker Environment Variables Prefix Change:**
@@ -18,14 +38,14 @@
     - `LOG_LEVEL` → `MRB_LOG_LEVEL`
   - No fallback for old variable names. Bot will fail to start if new names are not set.
 
-## [2.2.3] - 2026-04-04
+## [2.2.3]
 
 ### Fixed
 - **Template Variable Substitution in post_tags Comments:**
   - Fixed issue where `{author}` and `{{author}}` placeholders in `post_tags` comments were not being replaced with the actual post author's username.
   - Template variables now properly substitute in automatic post_tags comments, matching behavior of trigger-based comments.
 
-## [2.2.2] - 2026-03-29
+## [2.2.2]
 
 ### Added
 - **Required Text Feature for Config Validation:**
@@ -38,7 +58,7 @@
 
 
 
-## [2.2.1] - 2026-03-14
+## [2.2.1]
 
 ### Added
 - **Post Backfill on Startup:**
@@ -57,7 +77,7 @@
 - Fixed issue where new submissions stream wasn't being processed (skip_existing=True issue).
 - Improved stream error handling with attempt counter and better exception messages.
 
-## [2.2.0] - 2026-03-12
+## [2.2.0]
 
 ### Added
 - **Configurable Ignore Tags:**
@@ -77,12 +97,12 @@
 - N/A
 
 
-## [2.1.2] - 2026-03-10
+## [2.1.2]
 
 ### Fixed
 - Prevented AttributeError in modqueue watcher by checking for the 'title' attribute before accessing it. This ensures safe handling of Comment objects that do not have a 'title'.
 
-## [2.1.1] - 2026-03-10
+## [2.1.1]
 
 ### Fixed
 - Prevented AttributeError in modqueue watcher and tag_post_watcher by checking for 'link_flair_text' only on Submission objects. This avoids errors when processing Comment objects.
@@ -90,7 +110,7 @@
 ### Changed
 - Updated logic in modqueue watcher and tag_post_watcher to safely handle both Submission and Comment objects.
 
-## [2.1.0] - 2026-03-10
+## [2.1.0]
 
 ### Changed
 - Improved tag_post_watcher and modqueue_watcher logic: now runs modqueue watcher in a dedicated thread for reliable detection and commenting on filtered/removed posts.

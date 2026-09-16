@@ -3,7 +3,7 @@ import praw
 from config import get_reddit, Config
 from update_checker import start_update_checker
 
-BOT_VERSION = "2.3.0"  # Change this for new releases
+BOT_VERSION = "2.3.1"  # Change this for new releases
 BOT_NAME = "ModReplyBot"  # Change this if bot name changes
 
 import time
@@ -72,6 +72,7 @@ class ModReplyBot:
                 )
             
             comment = submission.reply(comment_text)
+            self.save_bot_comment(comment.id)
             comment.mod.distinguish(sticky=True)
             print(f"Commented (no approval) on: {submission.id}")
             self.save_commented_post(submission.id)
@@ -79,6 +80,7 @@ class ModReplyBot:
             print(f"Error commenting (no approval): {e}")
     def __init__(self):
         import os
+        import threading
         self.reddit = get_reddit()
         self.subreddit = self.reddit.subreddit(Config.SUBREDDIT)
         self.config_path = os.path.join(os.path.dirname(__file__), 'config', 'config.yaml')
@@ -99,6 +101,9 @@ class ModReplyBot:
         self.commented_posts_file = os.path.join(os.path.dirname(__file__), 'DB', 'commented_posts.txt')
         self.filtered_commented_posts = set()
         self.filtered_commented_posts_file = os.path.join(os.path.dirname(__file__), 'DB', 'filtered_commented_posts.txt')
+        self.bot_comments = set()
+        self.bot_comments_file = os.path.join(os.path.dirname(__file__), 'DB', 'bot_comments.txt')
+        self.bot_comments_lock = threading.RLock()
         self.tagged_commented_posts_file = os.path.join(os.path.dirname(__file__), 'DB', 'tagged_commented_posts.txt')
         self.tagged_commented_posts = set()
         self._wiki_config_cache = None
@@ -107,6 +112,7 @@ class ModReplyBot:
         self.ensure_config_file()
         self.load_commented_posts()
         self.load_filtered_commented_posts()
+        self.load_bot_comments()
         self.log_level = Config.LOG_LEVEL
 
     def log(self, message, debug_only=False):
@@ -303,6 +309,71 @@ class ModReplyBot:
         except FileNotFoundError:
             pass
 
+    def load_bot_comments(self):
+        with self.bot_comments_lock:
+            try:
+                with open(self.bot_comments_file, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        comment_id = line.strip()
+                        if comment_id:
+                            self.bot_comments.add(comment_id)
+            except FileNotFoundError:
+                pass
+
+    def save_bot_comment(self, comment_id):
+        with self.bot_comments_lock:
+            if not comment_id or comment_id in self.bot_comments:
+                return
+            self.bot_comments.add(comment_id)
+            with open(self.bot_comments_file, 'a', encoding='utf-8') as f:
+                f.write(comment_id + '\n')
+
+    def remove_bot_comment(self, comment_id):
+        with self.bot_comments_lock:
+            self.bot_comments.discard(comment_id)
+            with open(self.bot_comments_file, 'w', encoding='utf-8') as f:
+                for tracked_id in sorted(self.bot_comments):
+                    f.write(tracked_id + '\n')
+
+    @staticmethod
+    def was_removed_by_moderator(comment):
+        removal_category = getattr(comment, 'removed_by_category', None)
+        if isinstance(removal_category, str) and removal_category.lower() == 'moderator':
+            return True
+
+        if not getattr(comment, 'removed', False):
+            return False
+
+        removed_by = getattr(comment, 'banned_by', None)
+        removed_by_name = getattr(removed_by, 'name', removed_by)
+        if not removed_by_name:
+            return False
+
+        return str(removed_by_name).lower() not in {'automoderator', 'reddit'}
+
+    def check_removed_bot_comments(self):
+        with self.bot_comments_lock:
+            comment_ids = list(self.bot_comments)
+        for comment_id in comment_ids:
+            try:
+                comment = self.reddit.comment(id=comment_id)
+                comment.refresh()
+                if not self.was_removed_by_moderator(comment):
+                    continue
+                comment.delete()
+                self.remove_bot_comment(comment_id)
+                print(f"[COMMENT WATCH] Deleted moderator-removed bot comment: {comment_id}")
+            except Exception as e:
+                print(f"[COMMENT WATCH] Error checking bot comment {comment_id}: {e}")
+
+    def bot_comment_watcher(self):
+        while True:
+            try:
+                self.check_removed_bot_comments()
+            except Exception as e:
+                print(f"Bot comment watcher error: {e}")
+            time.sleep(60)
+
     def comment_on_filtered_post(self, submission):
         if not self.filtered_post_comment or submission.id in self.filtered_commented_posts:
             return
@@ -314,6 +385,7 @@ class ModReplyBot:
                 '{author}', submission.author.name if submission.author else 'unknown'
             )
             comment = submission.reply(comment_text)
+            self.save_bot_comment(comment.id)
             comment.mod.distinguish()
             self.filtered_commented_posts.add(submission.id)
             with open(self.filtered_commented_posts_file, 'a', encoding='utf-8') as f:
@@ -339,10 +411,6 @@ class ModReplyBot:
                     getattr(comment, 'distinguished', None) == 'moderator' and
                     comment.body == expected_text):
                     comment.delete()
-                    self.filtered_commented_posts.discard(post_id)
-                    with open(self.filtered_commented_posts_file, 'w', encoding='utf-8') as f:
-                        for saved_id in sorted(self.filtered_commented_posts):
-                            f.write(saved_id + '\n')
                     print(f"[CHAT WATCH] Deleted filtered comment from post {post_id}.")
                     return f"Filtered comment deleted from post {post_id}."
             return f"No matching filtered comment found on post {post_id}."
@@ -412,6 +480,7 @@ class ModReplyBot:
         threading.Thread(target=mod_comment_watcher, daemon=True).start()
         threading.Thread(target=mod_report_watcher, daemon=True).start()
         threading.Thread(target=self.chat_message_watcher, daemon=True).start()
+        threading.Thread(target=self.bot_comment_watcher, daemon=True).start()
 
         def backfill_recent_posts():
             """Scan recent posts from last 24 hours that bot may have missed while offline."""
@@ -717,6 +786,7 @@ class ModReplyBot:
                 print(f"[DEBUG] Submission object: {submission}, ID: {submission.id}, Type: {type(submission)}")
                 comment = submission.reply(comment_text)
                 print(f"[DEBUG] Comment object: {comment}, ID: {comment.id}, Type: {type(comment)}")
+                self.save_bot_comment(comment.id)
                 # Always sticky if stickied is True, match tag logic
                 if trigger_idx is not None and self.stickied[trigger_idx]:
                     try:
